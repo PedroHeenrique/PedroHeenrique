@@ -1,0 +1,91 @@
+package webService.livraria_virtual;
+
+
+
+import java.net.URI;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriBuilder;
+
+
+@Path("livro")
+public class LivroResource {
+	
+	private RepositorioLivros livroRepo = RepositorioLivros.getInstance();
+	
+	@GET
+	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON}) //PERMITE QUE SEJA RETORNADO TANTO JSON COMO XML
+	public Livros getLivros(){
+		Livros livros = new Livros();
+		livros.setLivros(livroRepo.getLivros());
+		return livros;
+	}
+	
+	@GET
+	@Path("/{isbn}") //INDICA QUE O QUE FOR INSERIDO DEPOIS DO PATH LIVRO SERA A VARIAVEL QUE SERA 
+	 // UTILIZADA NA PESQUISA EX livraria-virtual/livro/isbn1231
+	public Livro getLivroIsbn(@PathParam("isbn")String isbn) {
+		try {
+		return livroRepo.getLivroPorIsbn(isbn);
+		}
+		catch(LivroNaoEncontradoException e ) {
+			throw new WebApplicationException(Status.NOT_FOUND);
+		}
+	}
+	
+	 //IRA RECEBER REQUISICOES DO TIPO POST  
+     @POST
+     @Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
+	 public Response criaLivro(Livro livro) {
+    	 
+    	 try {
+    	 livroRepo.adicionaLivro(livro);
+    	 }catch(LivroExistenteException e ) {
+    		 throw new WebApplicationException(Status.CONFLICT);
+    	 }
+    	 URI uriLocation = UriBuilder.fromPath("livro/{isbn}").build(livro.getIsbn());
+    	 return Response.created(uriLocation).entity(livro).build();
+    	 
+     }
+     @PUT
+     @Path("/{isbn}")
+     @Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
+     public Response atualizaLivro (@PathParam("isbn")String isbn, Livro livro) {
+          try {
+    	  Livro livroDoEstoque = livroRepo.getLivroPorIsbn(isbn);
+    	  
+    	  livroDoEstoque.setAutor(livro.getAutor());
+    	  livroDoEstoque.setGenero(livro.getGenero());
+    	  livroDoEstoque.setPreco(livro.getPreco());
+    	  
+    	  livroRepo.atualizaLivro(livroDoEstoque);
+    	  
+    	 
+          }catch(LivroNaoEncontradoException e) {
+        	  throw new WebApplicationException(Status.NOT_FOUND);
+          }
+          
+          return Response.ok().entity(livro).build();
+     }
+     
+     @DELETE
+     @Path("/{id}")
+     public void removeLivro(@PathParam("id")Long id) {
+    	 try {
+    	 livroRepo.removerLivro(id);
+    	 } catch (LivroNaoEncontradoException erro) {
+    		 throw new WebApplicationException(Status.NOT_FOUND);
+    	 }
+     }
+}
